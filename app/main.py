@@ -149,7 +149,7 @@ async def provider_error(request, exc):
     return JSONResponse({"detail": str(exc)}, status_code=503)
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def home():
     return FileResponse(static / "index.html")
 

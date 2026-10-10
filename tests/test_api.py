@@ -35,6 +35,11 @@ class APITests(unittest.TestCase):
         self.assertIn('Источник', response.text)
         self.assertIn("script-src 'self'", response.headers['content-security-policy'])
 
+    def test_head_home(self):
+        response = self.client.head('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b'')
+
     def test_empty_chat(self):
         response = self.client.post('/api/chat', json={'question': 'Что в документе?'}, headers=self.headers)
         self.assertEqual(response.status_code, 200)
