@@ -6,6 +6,7 @@ import uuid
 from app.config import Settings
 from app.documents import Chunk
 from app.store import VectorStore
+from app.embeddings import BM25Embeddings
 from app.providers import ProviderError
 
 
@@ -13,7 +14,7 @@ from app.providers import ProviderError
 class QdrantIntegrationTests(unittest.TestCase):
     def test_upsert_search_scroll_delete_isolation(self):
         store = VectorStore(Settings(qdrant_url=os.environ['QDRANT_TEST_URL'], collection='ci_' + uuid.uuid4().hex,
-                                     embedding_dimensions=3, min_score=0.1))
+                                     min_score=0))
         for attempt in range(30):
             try:
                 store.ensure_collection()
@@ -26,15 +27,16 @@ class QdrantIntegrationTests(unittest.TestCase):
             for workspace in ['a', 'b']:
                 doc = {'document_id': str(uuid.uuid4()), 'name': workspace + '.txt', 'kind': 'txt', 'url': None,
                        'created_at': '2026-01-01T00:00:00Z', 'chunk_count': 1}
-                store.add(workspace, doc, [Chunk('Тестовый документ ' + workspace, None, 1)], [[1.0, 0.0, 0.0]])
+                text = 'Тестовый документ ' + workspace
+                store.add(workspace, doc, [Chunk(text, None, 1)], BM25Embeddings(Settings()).embeddings([text]))
             self.assertEqual(len(store.documents('a')), 1)
             self.assertEqual(len(store.documents('b')), 1)
-            results = store.search('a', [1.0, 0.0, 0.0])
+            results = store.search('a', BM25Embeddings(Settings()).embeddings(['документ'], query=True)[0])
             self.assertEqual(len(results), 1)
             self.assertEqual(results[0]['payload']['workspace'], 'a')
             store.clear('a')
             self.assertEqual(store.documents('a'), [])
             self.assertEqual(len(store.documents('b')), 1)
-            self.assertEqual(store.search('a', [1.0, 0.0, 0.0]), [])
+            self.assertEqual(store.search('a', BM25Embeddings(Settings()).embeddings(['документ'], query=True)[0]), [])
         finally:
             store.request('DELETE', store.root)

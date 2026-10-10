@@ -23,8 +23,5 @@ jobs:
         env:
           QDRANT_TEST_URL: http://127.0.0.1:6333
       - run: python -m compileall -q app tests
-      - run: python -m unittest tests.test_embeddings.RealEmbeddingTests -v
-        env:
-          RUN_EMBEDDING_INTEGRATION: '1'
       - run: node --check app/static/app.js
       - run: docker build -t document-rag:test .

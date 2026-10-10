@@ -18,17 +18,18 @@ from app.config import settings
 from app.documents import DocumentError, extract_file
 from app.providers import OpenAIClient, ProviderError
 from app.store import VectorStore
-from app.embeddings import LocalEmbeddings
+from app.embeddings import BM25Embeddings
 from app.web import fetch_page
 from app.rag import build_response, NO_INFORMATION
 
 logger = logging.getLogger("rag")
 store = VectorStore(settings)
 llm = OpenAIClient(settings)
-embedder = LocalEmbeddings(settings)
+embedder = BM25Embeddings(settings)
 # Fixed-size lock stripes avoid an unbounded per-session lock dictionary.
 locks = [threading.RLock() for _ in range(128)]
 rate_lock = threading.Lock()
+ingestion_lock = threading.Lock()
 rate_history = defaultdict(deque)
 ready = False
 
@@ -149,6 +150,13 @@ async def provider_error(request, exc):
     return JSONResponse({"detail": str(exc)}, status_code=503)
 
 
+@app.exception_handler(Exception)
+async def unexpected_error(request, exc):
+    error_id = uuid.uuid4().hex[:10]
+    logger.error("Unexpected server error %s", error_id, exc_info=(type(exc), exc, exc.__traceback__))
+    return JSONResponse({"detail": f"Внутренняя ошибка сервера. Код: {error_id}. Проверьте логи Render."}, status_code=500)
+
+
 @app.api_route("/", methods=["GET", "HEAD"])
 def home():
     return FileResponse(static / "index.html")
@@ -161,7 +169,7 @@ def health():
 
 @app.get("/api/status")
 def status():
-    return {"configured": bool(settings.chat_api_key), "max_upload_mb": 20, "max_documents": settings.max_documents}
+    return {"configured": bool(settings.chat_api_key), "max_upload_mb": settings.max_upload_bytes // (1024 * 1024), "max_documents": settings.max_documents, "retrieval_mode": "bm25"}
 
 
 @app.get("/api/documents")
@@ -192,9 +200,14 @@ def upload(file: UploadFile = File(...), ws: str = Depends(workspace)):
     finally:
         file.file.close()
     if len(data) > settings.max_upload_bytes:
-        raise HTTPException(413, "Максимальный размер файла: 20 МБ.")
-    chunks = extract_file(name, data, settings.max_pages)
-    return {"document": ingest(ws, name, name.rsplit(".", 1)[-1].lower(), chunks)}
+        raise HTTPException(413, f"Максимальный размер файла: {settings.max_upload_bytes // (1024 * 1024)} МБ.")
+    if not ingestion_lock.acquire(blocking=False):
+        raise HTTPException(429, "Сейчас обрабатывается другой источник. Повторите загрузку после его завершения.")
+    try:
+        chunks = extract_file(name, data, settings.max_pages)
+        return {"document": ingest(ws, name, name.rsplit(".", 1)[-1].lower(), chunks)}
+    finally:
+        ingestion_lock.release()
 
 
 class URLBody(BaseModel):
@@ -204,8 +217,13 @@ class URLBody(BaseModel):
 @app.post("/api/documents/url", status_code=201)
 def add_url(body: URLBody, ws: str = Depends(workspace)):
     limit_requests(ws)
-    title, url, chunks = fetch_page(body.url, settings.max_site_bytes)
-    return {"document": ingest(ws, title, "web", chunks, url)}
+    if not ingestion_lock.acquire(blocking=False):
+        raise HTTPException(429, "Сейчас обрабатывается другой источник. Повторите импорт позже.")
+    try:
+        title, url, chunks = fetch_page(body.url, settings.max_site_bytes)
+        return {"document": ingest(ws, title, "web", chunks, url)}
+    finally:
+        ingestion_lock.release()
 
 
 @app.delete("/api/documents")
@@ -239,6 +257,8 @@ def chat(body: ChatBody, ws: str = Depends(workspace)):
         if not store.documents(ws):
             return {"answer": NO_INFORMATION, "sources": [], "found": False}
         vector = embedder.embeddings([question], query=True)[0]
+        if not vector['indices']:
+            return {"answer": NO_INFORMATION, "sources": [], "found": False}
         hits = store.search(ws, vector)
         if not hits:
             return {"answer": NO_INFORMATION, "sources": [], "found": False}

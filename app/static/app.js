@@ -1,6 +1,7 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
 let documents = [];
+let maxUploadMB = 5;
 let uploading = false;
 let chatting = false;
 let clearing = false;
@@ -23,7 +24,12 @@ async function api(path, options = {}) {
     headers: { 'X-Requested-With': 'DocumentRAG', ...(options.headers || {}) },
   });
   let data;
-  try { data = await response.json(); } catch { throw new Error('Сервер вернул некорректный ответ.'); }
+  const raw = await response.text();
+  try { data = JSON.parse(raw); }
+  catch {
+    const hint = [502, 503, 504].includes(response.status) ? ' Возможно, Render перезапускает сервис. Проверьте Logs.' : ' Проверьте Logs сервиса.';
+    throw new Error(`Сервер вернул ответ не в формате JSON (HTTP ${response.status}).${hint}`);
+  }
   if (!response.ok) {
     const detail = typeof data.detail === 'string' ? data.detail : 'Проверьте введённые данные.';
     throw new Error(detail);
@@ -88,7 +94,7 @@ async function uploadFiles(files) {
   try {
     for (const file of files) {
       if (!/\.(pdf|txt)$/i.test(file.name)) { notify(`«${file.name}»: нужен PDF или TXT.`, true); continue; }
-      if (file.size > 20 * 1024 * 1024) { notify(`«${file.name}»: превышен лимит 20 МБ.`, true); continue; }
+      if (file.size > maxUploadMB * 1024 * 1024) { notify(`«${file.name}»: превышен лимит ${maxUploadMB} МБ.`, true); continue; }
       $('progress-text').textContent = `Читаем и индексируем: ${file.name}`;
       const body = new FormData(); body.append('file', file);
       try {
@@ -196,6 +202,8 @@ async function init() {
     // Sequential calls ensure the first response establishes a session before other requests.
     const status = await api('/api/status');
     available = status.configured;
+    maxUploadMB = status.max_upload_mb;
+    $('upload-limit').textContent = `PDF или TXT · до ${maxUploadMB} МБ каждый`;
     $('config-warning').hidden = available;
     await refreshDocuments();
   } catch (error) { notify(error.message, true); }

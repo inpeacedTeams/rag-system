@@ -1,74 +1,90 @@
-import os
-import tempfile
+import math
+import subprocess
+import sys
 import unittest
-from types import SimpleNamespace
-from unittest.mock import Mock
-import numpy as np
 from app.config import Settings
 from app.documents import Chunk, DocumentError
-from app.embeddings import LocalEmbeddings
-from app.providers import ProviderError
+from app.embeddings import BM25Embeddings, tokenize, normalize_term, term_id
 
 
-class CharacterTokenizer:
-    """Unit-test tokenizer only; production always uses the actual model tokenizer."""
-    def encode(self, text, add_special_tokens=False):
-        return SimpleNamespace(ids=list(range(len(text))), offsets=[(i, i + 1) for i in range(len(text))])
-
-
-class EmbeddingTests(unittest.TestCase):
+class BM25Tests(unittest.TestCase):
     def setUp(self):
-        self.client = LocalEmbeddings(Settings(embedding_dimensions=3))
-        self.client._model = Mock()
-        self.client._tokenizer = CharacterTokenizer()
+        self.encoder = BM25Embeddings(Settings())
 
-    def test_document_embeddings(self):
-        self.client._model.passage_embed.return_value = iter([np.array([1., 2., 3.])])
-        self.assertEqual(self.client.embeddings(['text']), [[1., 2., 3.]])
-        self.client._model.query_embed.assert_not_called()
+    def test_russian_inflections(self):
+        self.assertEqual(normalize_term('оплата'), normalize_term('оплаты'))
+        self.assertEqual(normalize_term('договор'), normalize_term('договора'))
+        self.assertEqual(normalize_term('оплатить'), normalize_term('оплата'))
 
-    def test_query_embeddings(self):
-        self.client._model.query_embed.return_value = iter([np.array([1., 0., 0.])])
-        self.assertEqual(self.client.embeddings(['question'], query=True), [[1., 0., 0.]])
-        self.client._model.passage_embed.assert_not_called()
+    def test_case_and_yo(self):
+        self.assertEqual(tokenize('СЧЁТ'), tokenize('счет'))
 
-    def test_bad_dimensions(self):
-        self.client._model.passage_embed.return_value = iter([np.array([1.])])
-        with self.assertRaises(ProviderError):
-            self.client.embeddings(['text'])
+    def test_stopwords(self):
+        self.assertEqual(tokenize('и в на the and'), [])
 
-    def test_non_finite_vectors(self):
-        self.client._model.passage_embed.return_value = iter([np.array([1., float('nan'), 0.])])
-        with self.assertRaises(ProviderError):
-            self.client.embeddings(['text'])
+    def test_numbers(self):
+        self.assertIn('10', tokenize('10 дней'))
+        self.assertIn('1', tokenize('1 день'))
 
-    def test_prepare_chunks_preserves_page_and_text(self):
-        text = 'я' * 1200
-        chunks = self.client.prepare_chunks([Chunk(text, 7, 1)])
-        self.assertEqual([c.number for c in chunks], list(range(1, len(chunks) + 1)))
-        self.assertTrue(all(c.page == 7 for c in chunks))
-        self.assertTrue(all(len(c.text) <= 480 for c in chunks))
-        self.assertEqual(sum(len(c.text) for c in chunks) - (len(chunks) - 1) * 60, len(text))
+    def test_query_weights(self):
+        vector = self.encoder.embeddings(['оплата оплата договор'], query=True)[0]
+        self.assertEqual(len(vector['indices']), 2)
+        self.assertEqual(vector['values'], [1.0, 1.0])
 
-    def test_question_too_long(self):
+    def test_document_weights(self):
+        one = self.encoder.embeddings(['договор'])[0]
+        repeated = self.encoder.embeddings(['договор договор договор'])[0]
+        self.assertGreater(repeated['values'][0], one['values'][0])
+        self.assertLess(repeated['values'][0], 3 * one['values'][0])
+
+    def test_length_penalty(self):
+        short = self.encoder.embeddings(['оплата'])[0]
+        long = self.encoder.embeddings(['оплата ' + 'договор ' * 100])[0]
+        identifier = term_id(normalize_term('оплата'))
+        weight = long['values'][long['indices'].index(identifier)]
+        self.assertGreater(short['values'][0], weight)
+
+    def test_indices_sorted_unique(self):
+        vector = self.encoder.embeddings(['договор оплата срок договор'])[0]
+        self.assertEqual(vector['indices'], sorted(set(vector['indices'])))
+        self.assertEqual(len(vector['indices']), len(vector['values']))
+        self.assertTrue(all(0 <= i <= 2**32 - 1 for i in vector['indices']))
+        self.assertTrue(all(math.isfinite(v) and v > 0 for v in vector['values']))
+
+    def test_stable_ids_between_processes(self):
+        script = 'from app.embeddings import term_id; print(term_id("оплат"))'
+        output = subprocess.check_output([sys.executable, '-c', script], text=True)
+        self.assertEqual(int(output), term_id('оплат'))
+
+    def test_question_document_overlap(self):
+        document = self.encoder.embeddings(['Срок оплаты по договору составляет десять рабочих дней.'])[0]
+        question = self.encoder.embeddings(['Какой срок оплаты по договору?'], query=True)[0]
+        self.assertEqual(len(set(question['indices']) & set(document['indices'])), 3)
+
+    def test_unrelated_question_no_overlap(self):
+        document = self.encoder.embeddings(['Срок оплаты по договору составляет десять рабочих дней.'])[0]
+        question = self.encoder.embeddings(['Курс доллара сегодня?'], query=True)[0]
+        self.assertFalse(set(question['indices']) & set(document['indices']))
+
+    def test_prepare_preserves_page_and_text(self):
+        chunks = self.encoder.prepare_chunks([Chunk('и в на', 1, 1), Chunk('Срок оплаты.', 7, 2)])
+        self.assertEqual(chunks, [Chunk('Срок оплаты.', 7, 1)])
+
+    def test_empty_document(self):
         with self.assertRaises(DocumentError):
-            self.client.embeddings(['x' * 481], query=True)
+            self.encoder.prepare_chunks([Chunk('и в на', None, 1)])
 
-    def test_empty(self):
-        self.assertEqual(self.client.embeddings([]), [])
+    def test_empty_vectors(self):
+        self.assertEqual(self.encoder.embeddings([]), [])
+        self.assertEqual(self.encoder.embeddings(['и в на'], query=True), [{'indices': [], 'values': []}])
 
+    def test_invalid_configuration(self):
+        for config in [Settings(bm25_k1=0), Settings(bm25_b=2), Settings(bm25_avg_length=0), Settings(bm25_b=float('nan'))]:
+            with self.assertRaises(ValueError):
+                BM25Embeddings(config)
 
-@unittest.skipUnless(os.getenv('RUN_EMBEDDING_INTEGRATION'), 'RUN_EMBEDDING_INTEGRATION not set')
-class RealEmbeddingTests(unittest.TestCase):
-    def test_real_multilingual_model(self):
-        with tempfile.TemporaryDirectory() as cache:
-            client = LocalEmbeddings(Settings(embedding_cache_dir=cache))
-            chunks = client.prepare_chunks([Chunk('Срок оплаты составляет десять рабочих дней.', 1, 1)])
-            document = np.array(client.embeddings([chunks[0].text])[0])
-            question = np.array(client.embeddings([chunks[0].text], query=True)[0])
-            self.assertEqual(len(document), 384)
-            self.assertTrue(np.isfinite(document).all())
-            self.assertGreater(float(np.dot(document, question) / (np.linalg.norm(document) * np.linalg.norm(question))), 0.99)
-            long_chunks = client.prepare_chunks([Chunk('сложное слово ' * 500, 2, 1)])
-            self.assertTrue(len(long_chunks) > 1)
-            self.assertEqual(len(client.embeddings([c.text for c in long_chunks])), len(long_chunks))
+    def test_lightweight_dependencies(self):
+        from pathlib import Path
+        requirements = (Path(__file__).resolve().parents[1] / 'requirements.txt').read_text()
+        for dependency in ['fastembed', 'onnxruntime', 'torch', 'transformers', 'numpy']:
+            self.assertNotIn(dependency, requirements)

@@ -154,15 +154,42 @@ class StoreTests(unittest.TestCase):
     def test_search_is_scoped(self):
         store = VectorStore(Settings())
         with patch.object(store, 'request', return_value={'points': []}) as request:
-            store.search('a', [0.1])
+            store.search('a', {'indices': [1], 'values': [1.0]})
             body = request.call_args.args[2]
             self.assertEqual(body['filter'], store.scope('a'))
+            self.assertEqual(body['using'], 'bm25')
 
     def test_clear_is_scoped(self):
         store = VectorStore(Settings())
         with patch.object(store, 'request') as request:
             store.clear('a')
             self.assertEqual(request.call_args.args[2], {'filter': store.scope('a')})
+
+    def test_sparse_collection_creation(self):
+        store = VectorStore(Settings())
+        with patch.object(store, 'request', side_effect=[None, True, True, True]) as request:
+            store.ensure_collection()
+            body = request.call_args_list[1].args[2]
+            self.assertNotIn('vectors', body)
+            self.assertEqual(body['sparse_vectors']['bm25']['modifier'], 'idf')
+            fields = [call.args[2]['field_name'] for call in request.call_args_list[2:]]
+            self.assertEqual(fields, ['workspace', 'document_id'])
+
+    def test_dense_collection_rejected(self):
+        store = VectorStore(Settings())
+        with patch.object(store, 'request', return_value={'config': {'params': {'vectors': {'size': 384}}}}), self.assertRaises(ProviderError):
+            store.ensure_collection()
+
+    def test_named_sparse_upsert(self):
+        from app.documents import Chunk
+        store = VectorStore(Settings())
+        vector = {'indices': [12], 'values': [1.2]}
+        with patch.object(store, 'request') as request:
+            store.add('session', {'document_id': 'd'}, [Chunk('текст', 4, 1)], [vector])
+            point = request.call_args.args[2]['points'][0]
+            self.assertEqual(point['vector'], {'bm25': vector})
+            self.assertEqual(point['payload']['workspace'], 'session')
+            self.assertEqual(point['payload']['page'], 4)
 
     def test_scroll_paginates(self):
         store = VectorStore(Settings())

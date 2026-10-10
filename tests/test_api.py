@@ -72,7 +72,7 @@ class APITests(unittest.TestCase):
             self.assertNotEqual(ws, main.read_session(other.cookies.get('rag_session')))
 
     def test_upload_real_txt_parsing(self):
-        self.embedder.embeddings.return_value = [[0.1, 0.2]]
+        self.embedder.embeddings.return_value = [{'indices': [1], 'values': [1.0]}]
         response = self.client.post('/api/documents/upload', files={'file': ('test.txt', 'Договор действует один год.'.encode(), 'text/plain')}, headers=self.headers)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()['document']['chunk_count'], 1)
@@ -82,6 +82,26 @@ class APITests(unittest.TestCase):
         response = self.client.post('/api/documents/upload', files={'file': ('test.exe', b'bad')}, headers=self.headers)
         self.assertEqual(response.status_code, 400)
         self.store.add.assert_not_called()
+
+    def test_ingestion_busy(self):
+        main.ingestion_lock.acquire()
+        try:
+            response = self.client.post('/api/documents/upload', files={'file': ('a.txt', b'document')}, headers=self.headers)
+            self.assertEqual(response.status_code, 429)
+        finally:
+            main.ingestion_lock.release()
+
+    def test_empty_query_vector(self):
+        self.store.documents.return_value = [{'document_id': 'd'}]
+        self.embedder.embeddings.return_value = [{'indices': [], 'values': []}]
+        response = self.client.post('/api/chat', json={'question': 'и в на'}, headers=self.headers)
+        self.assertFalse(response.json()['found'])
+        self.store.search.assert_not_called()
+
+    def test_status_limits(self):
+        response = self.client.get('/api/status')
+        self.assertEqual(response.json()['retrieval_mode'], 'bm25')
+        self.assertEqual(response.json()['max_upload_mb'], 5)
 
     def test_empty_question(self):
         response = self.client.post('/api/chat', json={'question': '   '}, headers=self.headers)
@@ -93,7 +113,7 @@ class APITests(unittest.TestCase):
 
     def test_answer_and_verification(self):
         self.store.documents.return_value = [{'document_id': 'd'}]
-        self.embedder.embeddings.return_value = [[0.1]]
+        self.embedder.embeddings.return_value = [{'indices': [1], 'values': [1.0]}]
         self.store.search.return_value = [{'payload': {'document_id': 'd', 'name': 'a.txt', 'text': 'Срок оплаты десять дней.', 'chunk': 1, 'page': None}}]
         self.llm.answer.return_value = {'found': True, 'claims': [{'source_id': 1, 'text': 'Срок оплаты десять дней.', 'quote': 'Срок оплаты десять дней.'}]}
         self.llm.verify.return_value = True
@@ -105,7 +125,7 @@ class APITests(unittest.TestCase):
 
     def test_verifier_fail_closed(self):
         self.store.documents.return_value = [{'document_id': 'd'}]
-        self.embedder.embeddings.return_value = [[0.1]]
+        self.embedder.embeddings.return_value = [{'indices': [1], 'values': [1.0]}]
         self.store.search.return_value = [{'payload': {'document_id': 'd', 'name': 'a.txt', 'text': 'Срок оплаты десять дней.', 'chunk': 1}}]
         self.llm.answer.return_value = {'found': True, 'claims': [{'source_id': 1, 'text': 'Срок оплаты сто дней.', 'quote': 'Срок оплаты десять дней.'}]}
         self.llm.verify.return_value = False

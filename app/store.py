@@ -24,10 +24,16 @@ class VectorStore:
     def ensure_collection(self):
         existing = self.request("GET", self.root, allow_missing=True)
         if existing is None:
-            self.request("PUT", self.root, {"vectors": {"size": self.config.embedding_dimensions, "distance": "Cosine"}})
-            self.request("PUT", self.root + "/index?wait=true", {"field_name": "workspace", "field_schema": "keyword"})
-        elif existing["config"]["params"]["vectors"]["size"] != self.config.embedding_dimensions:
-            raise ProviderError("Размер эмбеддингов отличается от коллекции. Создайте коллекцию с новым именем.")
+            self.request("PUT", self.root, {
+                "sparse_vectors": {"bm25": {"index": {"on_disk": True}, "modifier": "idf"}}
+            })
+        else:
+            sparse = existing["config"]["params"].get("sparse_vectors") or {}
+            if "bm25" not in sparse or sparse["bm25"].get("modifier") != "idf":
+                raise ProviderError("Коллекция несовместима с BM25. Задайте QDRANT_COLLECTION=documents_bm25_v1 и загрузите документы заново.")
+        # Recreate/ensure the scope index even if a previous startup was interrupted.
+        for field in ("workspace", "document_id"):
+            self.request("PUT", self.root + "/index?wait=true", {"field_name": field, "field_schema": "keyword"})
 
     @staticmethod
     def scope(workspace: str, doc_id: str | None = None):
@@ -40,7 +46,7 @@ class VectorStore:
         if len(chunks) != len(vectors):
             raise ProviderError("Количество чанков и эмбеддингов не совпадает.")
         points = [{
-            "id": str(uuid.uuid4()), "vector": vector,
+            "id": str(uuid.uuid4()), "vector": {"bm25": vector},
             "payload": {**document, "workspace": workspace, "page": chunk.page, "chunk": chunk.number, "text": chunk.text},
         } for chunk, vector in zip(chunks, vectors)]
         # Submit all chunks in one acknowledged request, rather than incremental batches.
@@ -62,9 +68,9 @@ class VectorStore:
                 break
         return sorted(docs.values(), key=lambda d: d["created_at"], reverse=True)
 
-    def search(self, workspace: str, vector: list):
+    def search(self, workspace: str, vector: dict):
         result = self.request("POST", self.root + "/points/query", {
-            "query": vector, "filter": self.scope(workspace), "limit": self.config.top_k,
+            "query": vector, "using": "bm25", "filter": self.scope(workspace), "limit": self.config.top_k,
             "score_threshold": self.config.min_score, "with_payload": True, "with_vector": False,
         })
         return result["points"]

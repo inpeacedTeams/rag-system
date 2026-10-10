@@ -11,21 +11,20 @@ class Settings:
     openai_base_url: str = os.getenv("CHAT_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://api.xkiro.com/v1")).rstrip("/")
     chat_model: str = os.getenv("CHAT_MODEL", "qwen/qwen3.8-omni-flash:free")
     chat_response_format: str = os.getenv("CHAT_RESPONSE_FORMAT", "prompt")
-    embedding_model: str = os.getenv("EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-    embedding_dimensions: int = int(os.getenv("EMBEDDING_DIMENSIONS", "384"))
-    embedding_cache_dir: str = os.getenv("EMBEDDING_CACHE_DIR", "/models")
-    embedding_threads: int = int(os.getenv("EMBEDDING_THREADS", "2"))
+    bm25_k1: float = float(os.getenv("BM25_K1", "1.2"))
+    bm25_b: float = float(os.getenv("BM25_B", "0.75"))
+    bm25_avg_length: float = float(os.getenv("BM25_AVG_LENGTH", "220"))
     qdrant_url: str = os.getenv("QDRANT_URL", "http://qdrant:6333").rstrip("/")
     qdrant_api_key: str = os.getenv("QDRANT_API_KEY", "")
-    collection: str = os.getenv("QDRANT_COLLECTION", "documents_kiro_minilm_v1")
+    collection: str = os.getenv("QDRANT_COLLECTION", "documents_bm25_v1")
     session_secret: str = os.getenv("SESSION_SECRET", "")
     secure_cookie: bool = os.getenv("COOKIE_SECURE", "false").lower() == "true"
-    min_score: float = float(os.getenv("MIN_RELEVANCE_SCORE", "0.35"))
-    max_upload_bytes: int = 20 * 1024 * 1024
+    min_score: float = float(os.getenv("MIN_RELEVANCE_SCORE", "0"))
+    max_upload_bytes: int = int(os.getenv("MAX_UPLOAD_MB", "5")) * 1024 * 1024
     max_site_bytes: int = 5 * 1024 * 1024
     max_chunks: int = 1000
     max_documents: int = 30
-    max_pages: int = 300
+    max_pages: int = int(os.getenv("MAX_PDF_PAGES", "100"))
     top_k: int = 8
 
     @property

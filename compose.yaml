@@ -4,8 +4,6 @@ services:
     env_file: .env
     environment:
       QDRANT_URL: http://qdrant:6333
-    volumes:
-      - embedding_cache:/models
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -19,7 +17,7 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    mem_limit: 1536m
+    mem_limit: 512m
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 30s
@@ -35,4 +33,3 @@ services:
     # Intentionally no host port: only the app can reach Qdrant via the Docker network.
 volumes:
   qdrant_data:
-  embedding_cache:
