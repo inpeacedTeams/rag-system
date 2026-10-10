@@ -13,7 +13,7 @@
     <aside class="sidebar">
       <a class="brand" href="/" aria-label="Источник, главная"><span class="brand-icon">И</span><span>источник<span class="brand-dot">.</span></span></a>
       <div class="sidebar-intro"><span class="eyebrow">ВАША БАЗА ЗНАНИЙ</span><h1>Ответы начинаются<br>с документов.</h1><p>Добавьте материалы, а затем задайте вопрос. Каждый ответ можно проверить.</p></div>
-      <div id="config-warning" class="notice" hidden>Не настроен API-ключ. Добавьте OPENAI_API_KEY в .env и перезапустите приложение.</div>
+      <div id="config-warning" class="notice" hidden>Не настроен ключ Kiro. Добавьте KIRO_API_KEY в .env и перезапустите приложение.</div>
       <section aria-labelledby="add-heading">
         <h2 id="add-heading" class="section-heading">Добавить источник</h2>
         <label id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Загрузить PDF или TXT">
@@ -26,7 +26,7 @@
       </section>
       <section class="library" aria-labelledby="library-heading"><div class="section-row"><h2 id="library-heading" class="section-heading">Источники</h2><span id="document-count" class="counter">0</span></div><div id="document-list"><p class="empty-library">Пока здесь пусто.<br>Добавьте первый документ.</p></div></section>
       <button id="clear-button" class="clear-button" type="button" disabled>Очистить базу знаний</button>
-      <p class="privacy-note">База привязана к этому браузеру. Материалы и вопросы отправляются в OpenAI для обработки.</p>
+      <p class="privacy-note">База привязана к этому браузеру. Найденные фрагменты и вопросы отправляются в Kiro. Эмбеддинги вычисляются на сервере.</p>
     </aside>
     <main class="chat-panel">
       <header class="chat-header"><div><span class="eyebrow">DOCUMENT CHAT</span><h2>Спросите у ваших материалов</h2></div><span class="grounded-badge"><span></span>Только по источникам</span></header>

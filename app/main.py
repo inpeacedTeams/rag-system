@@ -18,12 +18,14 @@ from app.config import settings
 from app.documents import DocumentError, extract_file
 from app.providers import OpenAIClient, ProviderError
 from app.store import VectorStore
+from app.embeddings import LocalEmbeddings
 from app.web import fetch_page
 from app.rag import build_response, NO_INFORMATION
 
 logger = logging.getLogger("rag")
 store = VectorStore(settings)
 llm = OpenAIClient(settings)
+embedder = LocalEmbeddings(settings)
 # Fixed-size lock stripes avoid an unbounded per-session lock dictionary.
 locks = [threading.RLock() for _ in range(128)]
 rate_lock = threading.Lock()
@@ -159,7 +161,7 @@ def health():
 
 @app.get("/api/status")
 def status():
-    return {"configured": bool(settings.openai_api_key), "max_upload_mb": 20, "max_documents": settings.max_documents}
+    return {"configured": bool(settings.chat_api_key), "max_upload_mb": 20, "max_documents": settings.max_documents}
 
 
 @app.get("/api/documents")
@@ -168,6 +170,7 @@ def documents(ws: str = Depends(workspace)):
 
 
 def ingest(ws: str, name: str, kind: str, chunks: list, url=None):
+    chunks = embedder.prepare_chunks(chunks)
     if len(chunks) > settings.max_chunks:
         raise DocumentError(f"Документ слишком большой: максимум {settings.max_chunks} чанков.")
     with session_lock(ws):
@@ -175,7 +178,7 @@ def ingest(ws: str, name: str, kind: str, chunks: list, url=None):
             raise DocumentError("Достигнут лимит 30 документов. Удалите лишние документы.")
         document = {"document_id": str(uuid.uuid4()), "name": name, "kind": kind, "url": url,
                     "created_at": datetime.now(timezone.utc).isoformat(), "chunk_count": len(chunks)}
-        vectors = llm.embeddings([chunk.text for chunk in chunks])
+        vectors = embedder.embeddings([chunk.text for chunk in chunks])
         store.add(ws, document, chunks, vectors)
         return document
 
@@ -235,7 +238,7 @@ def chat(body: ChatBody, ws: str = Depends(workspace)):
     with session_lock(ws):
         if not store.documents(ws):
             return {"answer": NO_INFORMATION, "sources": [], "found": False}
-        vector = llm.embeddings([question])[0]
+        vector = embedder.embeddings([question], query=True)[0]
         hits = store.search(ws, vector)
         if not hits:
             return {"answer": NO_INFORMATION, "sources": [], "found": False}

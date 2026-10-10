@@ -11,7 +11,9 @@ class APITests(unittest.TestCase):
         self.store = Mock()
         self.store.documents.return_value = []
         self.llm = Mock()
-        self.patches = [patch.object(main, 'store', self.store), patch.object(main, 'llm', self.llm),
+        self.embedder = Mock()
+        self.embedder.prepare_chunks.side_effect = lambda chunks: chunks
+        self.patches = [patch.object(main, 'store', self.store), patch.object(main, 'llm', self.llm), patch.object(main, 'embedder', self.embedder),
                         patch.object(main, 'settings', replace(main.settings, session_secret='test-only-secret-' * 4))]
         for item in self.patches:
             item.start()
@@ -37,7 +39,7 @@ class APITests(unittest.TestCase):
         response = self.client.post('/api/chat', json={'question': 'Что в документе?'}, headers=self.headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['answer'], main.NO_INFORMATION)
-        self.llm.embeddings.assert_not_called()
+        self.embedder.embeddings.assert_not_called()
 
     def test_missing_csrf_header(self):
         self.assertEqual(self.client.delete('/api/documents').status_code, 403)
@@ -65,7 +67,7 @@ class APITests(unittest.TestCase):
             self.assertNotEqual(ws, main.read_session(other.cookies.get('rag_session')))
 
     def test_upload_real_txt_parsing(self):
-        self.llm.embeddings.return_value = [[0.1, 0.2]]
+        self.embedder.embeddings.return_value = [[0.1, 0.2]]
         response = self.client.post('/api/documents/upload', files={'file': ('test.txt', 'Договор действует один год.'.encode(), 'text/plain')}, headers=self.headers)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()['document']['chunk_count'], 1)
@@ -86,7 +88,7 @@ class APITests(unittest.TestCase):
 
     def test_answer_and_verification(self):
         self.store.documents.return_value = [{'document_id': 'd'}]
-        self.llm.embeddings.return_value = [[0.1]]
+        self.embedder.embeddings.return_value = [[0.1]]
         self.store.search.return_value = [{'payload': {'document_id': 'd', 'name': 'a.txt', 'text': 'Срок оплаты десять дней.', 'chunk': 1, 'page': None}}]
         self.llm.answer.return_value = {'found': True, 'claims': [{'source_id': 1, 'text': 'Срок оплаты десять дней.', 'quote': 'Срок оплаты десять дней.'}]}
         self.llm.verify.return_value = True
@@ -98,7 +100,7 @@ class APITests(unittest.TestCase):
 
     def test_verifier_fail_closed(self):
         self.store.documents.return_value = [{'document_id': 'd'}]
-        self.llm.embeddings.return_value = [[0.1]]
+        self.embedder.embeddings.return_value = [[0.1]]
         self.store.search.return_value = [{'payload': {'document_id': 'd', 'name': 'a.txt', 'text': 'Срок оплаты десять дней.', 'chunk': 1}}]
         self.llm.answer.return_value = {'found': True, 'claims': [{'source_id': 1, 'text': 'Срок оплаты сто дней.', 'quote': 'Срок оплаты десять дней.'}]}
         self.llm.verify.return_value = False

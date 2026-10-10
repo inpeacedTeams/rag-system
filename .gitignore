@@ -7,3 +7,4 @@ __pycache__/
 .pytest_cache/
 qdrant_storage/
 .DS_Store
+model_cache/

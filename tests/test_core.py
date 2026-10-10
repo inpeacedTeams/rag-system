@@ -8,7 +8,7 @@ from app.documents import chunk_pages, extract_file, normalize, DocumentError
 from app.rag import build_response, NO_INFORMATION
 from app.web import validate_url, public_addresses, fetch_page
 from app.store import VectorStore
-from app.providers import OpenAIClient, ProviderError
+from app.providers import OpenAIClient, ProviderError, parse_json_content
 
 
 class DocumentTests(unittest.TestCase):
@@ -174,29 +174,70 @@ class StoreTests(unittest.TestCase):
 
 class ProviderTests(unittest.TestCase):
     def test_missing_key(self):
-        client = OpenAIClient(Settings(openai_api_key=''))
+        client = OpenAIClient(Settings(kiro_api_key='', openai_api_key=''))
         with self.assertRaises(ProviderError):
-            client.embeddings(['hello'])
+            client.answer('hello', [])
 
-    def test_embedding_order(self):
-        client = OpenAIClient(Settings(embedding_dimensions=2))
-        with patch.object(client, 'request', return_value={'data': [{'index': 1, 'embedding': [2, 3]}, {'index': 0, 'embedding': [0, 1]}]}):
-            self.assertEqual(client.embeddings(['a', 'b']), [[0, 1], [2, 3]])
+    def test_kiro_request_format(self):
+        client = OpenAIClient(Settings())
+        with patch.object(client, 'request', return_value={'choices': [{'message': {'content': '{"found":false,"claims":[]}'}, 'finish_reason': 'stop'}]}) as request:
+            result = client.answer('q', [])
+            body = request.call_args.args[1]
+            self.assertFalse(result['found'])
+            self.assertEqual(body['model'], 'qwen/qwen3.8-omni-flash:free')
+            self.assertNotIn('response_format', body)
+            self.assertNotIn('max_completion_tokens', body)
+            self.assertIn('max_tokens', body)
+            self.assertIn('JSON', body['messages'][0]['content'])
 
-    def test_wrong_dimensions(self):
-        client = OpenAIClient(Settings(embedding_dimensions=2))
-        with patch.object(client, 'request', return_value={'data': [{'index': 0, 'embedding': [0]}]}), self.assertRaises(ProviderError):
-            client.embeddings(['a'])
+    def test_kiro_url_and_auth(self):
+        client = OpenAIClient(Settings(kiro_api_key='test-only-key'))
+        response = Mock(status_code=200)
+        response.json.return_value = {'choices': []}
+        with patch('app.providers.requests.post', return_value=response) as post:
+            client.request('chat/completions', {'messages': []})
+            self.assertEqual(post.call_args.args[0], 'https://api.xkiro.com/v1/chat/completions')
+            self.assertEqual(post.call_args.kwargs['headers']['Authorization'], 'Bearer test-only-key')
+
+    def test_old_openai_key_not_sent_to_kiro(self):
+        client = OpenAIClient(Settings(kiro_api_key='', openai_api_key='old-test-key'))
+        with patch('app.providers.requests.post') as post, self.assertRaises(ProviderError):
+            client.answer('q', [])
+        post.assert_not_called()
+
+    def test_malformed_structure_is_error(self):
+        client = OpenAIClient(Settings())
+        with patch.object(client, 'request', return_value={'choices': [{'message': {'content': '{"found":"yes","claims":[]}'}}]}), self.assertRaises(ProviderError):
+            client.answer('q', [])
+
+    def test_json_schema_opt_in(self):
+        client = OpenAIClient(Settings(chat_response_format='json_schema'))
+        with patch.object(client, 'request', return_value={'choices': [{'message': {'content': '{"supported":true}'}}]}) as request:
+            self.assertTrue(client.verify('q', []))
+            self.assertEqual(request.call_args.args[1]['response_format']['type'], 'json_schema')
 
     def test_verifier_rejects(self):
         client = OpenAIClient(Settings())
         with patch.object(client, 'request', return_value={'choices': [{'message': {'content': '{"supported":false}'}}]}):
             self.assertFalse(client.verify('q', []))
 
-    def test_verifier_refusal_rejects(self):
+    def test_verifier_refusal_is_service_error(self):
         client = OpenAIClient(Settings())
-        with patch.object(client, 'request', return_value={'choices': [{'message': {'refusal': 'no'}}]}):
-            self.assertFalse(client.verify('q', []))
+        with patch.object(client, 'request', return_value={'choices': [{'message': {'refusal': 'no'}}]}), self.assertRaises(ProviderError):
+            client.verify('q', [])
+
+    def test_truncated_answer(self):
+        client = OpenAIClient(Settings())
+        with patch.object(client, 'request', return_value={'choices': [{'message': {'content': '{'}, 'finish_reason': 'length'}]}), self.assertRaises(ProviderError):
+            client.answer('q', [])
+
+    def test_code_fence(self):
+        self.assertEqual(parse_json_content('```json\n{"supported":true}\n```'), {'supported': True})
+
+    def test_invalid_json(self):
+        for text in ['hello {"a":1}', '{"a":1,"a":2}', '[]', 'null']:
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                parse_json_content(text)
 
 
 if __name__ == '__main__':
