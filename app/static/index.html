@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Чат с вашими документами, с цитатами и источниками.">
+  <title>Источник · Чат с документами</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="Источник, главная"><span class="brand-icon">И</span><span>источник<span class="brand-dot">.</span></span></a>
+      <div class="sidebar-intro"><span class="eyebrow">ВАША БАЗА ЗНАНИЙ</span><h1>Ответы начинаются<br>с документов.</h1><p>Добавьте материалы, а затем задайте вопрос. Каждый ответ можно проверить.</p></div>
+      <div id="config-warning" class="notice" hidden>Не настроен API-ключ. Добавьте OPENAI_API_KEY в .env и перезапустите приложение.</div>
+      <section aria-labelledby="add-heading">
+        <h2 id="add-heading" class="section-heading">Добавить источник</h2>
+        <label id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Загрузить PDF или TXT">
+          <input id="file-input" type="file" accept=".pdf,.txt" multiple hidden>
+          <span class="upload-symbol" aria-hidden="true">↑</span><strong>Выберите или перетащите файлы</strong><span>PDF или TXT · до 20 МБ каждый</span>
+        </label>
+        <form id="url-form" class="url-form"><label class="sr-only" for="url-input">Ссылка на страницу</label><input id="url-input" type="url" maxlength="2048" placeholder="https://example.com/article" required><button id="url-submit" type="submit" aria-label="Добавить сайт">↗</button></form>
+        <p class="small-note">Импортируется текст одной страницы сайта.</p>
+        <div id="upload-progress" class="progress-line" role="status" hidden><span class="spinner"></span><span id="progress-text">Обрабатываем документ…</span></div>
+      </section>
+      <section class="library" aria-labelledby="library-heading"><div class="section-row"><h2 id="library-heading" class="section-heading">Источники</h2><span id="document-count" class="counter">0</span></div><div id="document-list"><p class="empty-library">Пока здесь пусто.<br>Добавьте первый документ.</p></div></section>
+      <button id="clear-button" class="clear-button" type="button" disabled>Очистить базу знаний</button>
+      <p class="privacy-note">База привязана к этому браузеру. Материалы и вопросы отправляются в OpenAI для обработки.</p>
+    </aside>
+    <main class="chat-panel">
+      <header class="chat-header"><div><span class="eyebrow">DOCUMENT CHAT</span><h2>Спросите у ваших материалов</h2></div><span class="grounded-badge"><span></span>Только по источникам</span></header>
+      <div id="messages" class="messages" role="log" aria-live="polite" aria-label="История чата">
+        <section id="welcome" class="welcome"><div class="welcome-icon" aria-hidden="true">✳</div><span class="eyebrow">МЕНЬШЕ ПОИСКА. БОЛЬШЕ ЯСНОСТИ.</span><h2>Ваши документы.<br>Понятные ответы.</h2><p>Загрузите PDF, текстовый файл или страницу сайта.<br>Я найду ответ и покажу фрагмент, на который опираюсь.</p><div class="feature-cards"><div><span>01</span><strong>Добавьте материалы</strong><p>Документы и страницы в одной базе.</p></div><div><span>02</span><strong>Задайте вопрос</strong><p>Обычным языком, без ключевых слов.</p></div><div><span>03</span><strong>Проверьте источник</strong><p>Файл, страница и точная цитата.</p></div></div><p class="honesty-note">Если ответа в материалах нет, я скажу об этом.</p></section>
+      </div>
+      <footer class="composer-area"><form id="chat-form" class="composer"><label for="question" class="sr-only">Вопрос по документам</label><textarea id="question" rows="1" maxlength="2000" placeholder="Задайте вопрос по загруженным документам…" required></textarea><button id="send-button" type="submit" aria-label="Отправить вопрос">↑</button></form><div class="composer-caption"><span>Enter, отправить · Shift + Enter, новая строка</span><span id="question-count">0 / 2000</span></div><p class="accuracy-note">ИИ может ошибаться. Проверяйте важные выводы по цитатам.</p></footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="alert" hidden></div>
+  <dialog id="clear-dialog"><h2>Очистить базу знаний?</h2><p>Все документы этой браузерной сессии и их эмбеддинги будут удалены. Это действие нельзя отменить.</p><div class="dialog-actions"><button id="cancel-clear" type="button">Отмена</button><button id="confirm-clear" class="danger" type="button">Удалить всё</button></div></dialog>
+</body>
+</html>
