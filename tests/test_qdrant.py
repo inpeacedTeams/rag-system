@@ -1,4 +1,3 @@
-"""Actual Qdrant integration, opt-in through QDRANT_TEST_URL. No OpenAI calls."""
 import os
 import time
 import unittest

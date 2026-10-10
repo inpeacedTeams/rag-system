@@ -30,6 +30,5 @@ services:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
     mem_limit: 1g
-    # Intentionally no host port: only the app can reach Qdrant via the Docker network.
 volumes:
   qdrant_data:

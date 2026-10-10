@@ -1,9 +1,3 @@
-"""Lightweight lexical BM25 vectors, not neural/semantic embeddings.
-
-Document term frequency and length normalization are computed here. Qdrant's
-IDF modifier supplies inverse document frequency at query time. Average document
-length is a fixed tuning value, so this is a BM25 variant, not corpus-exact BM25.
-"""
 from collections import Counter
 import hashlib
 import math
@@ -12,7 +6,7 @@ from app.config import Settings
 from app.documents import Chunk, DocumentError
 
 STOPWORDS = frozenset('''а без бы был была были было в вам вас весь во вот все всего всех вы где да для до его ее если есть еще же за здесь и из или им их к как какой какая какие когда кто ли либо мне мы на над надо наш не него нее нет ни но о об от по под при про с со так такой там те тем то того тоже ты у уже что чтобы это этот эта эти я the a an and or of to in on at for is are was were be been with by from this that these those it its as what which who when how'''.split())
-# Deliberately conservative suffix normalization, not a full morphological analyzer.
+
 RUSSIAN_SUFFIXES = tuple(sorted(set('''иями ями ами ого его ому ему ыми ими ая яя ое ее ые ие ой ей ом ем ов ев ах ях их ых ую юю ают яют ает яет ить ать ять ете ите ует уют а я ы и у ю е о ь'''.split()), key=len, reverse=True))
 
 
@@ -33,8 +27,8 @@ def tokenize(text: str) -> list[str]:
 
 
 def term_id(term: str) -> int:
-    # Stable 32-bit sparse vocabulary, independent of process/host/Python hash seed.
-    # Rare hash collisions are possible, as in other hashed lexical encoders.
+
+
     return int.from_bytes(hashlib.blake2b(term.encode('utf-8'), digest_size=4).digest(), 'little')
 
 
@@ -62,7 +56,7 @@ class BM25Embeddings:
             for term, frequency in counts.items():
                 index = term_id(term)
                 if query:
-                    weight = 1.0  # Qdrant multiplies this by its IDF statistic.
+                    weight = 1.0
                 else:
                     k1, b = self.config.bm25_k1, self.config.bm25_b
                     weight = frequency * (k1 + 1) / (frequency + k1 * (1 - b + b * length / self.config.bm25_avg_length))

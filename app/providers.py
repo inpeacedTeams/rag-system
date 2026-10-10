@@ -12,8 +12,8 @@ def parse_json_content(content: str) -> dict:
     if not isinstance(content, str) or len(content) > 100_000:
         raise ValueError("Invalid response content")
     content = content.strip()
-    # Some compatible models wrap JSON in a single code fence. Do not fish an
-    # arbitrary JSON object out of prose, which could hide malformed responses.
+
+
     fenced = re.fullmatch(r"```(?:json)?\s*\n?([\s\S]*?)\n?```", content, flags=re.IGNORECASE)
     if fenced:
         content = fenced.group(1).strip()
@@ -33,7 +33,7 @@ def parse_json_content(content: str) -> dict:
 
 
 class OpenAIClient:
-    """OpenAI-compatible chat client, configured for Kiro by default."""
+
     def __init__(self, config: Settings):
         self.config = config
 
@@ -67,7 +67,7 @@ class OpenAIClient:
                 {"role": "system", "content": instructions + "\nВерни только JSON-объект, без Markdown и пояснений. JSON должен соответствовать схеме:\n" + json.dumps(schema, ensure_ascii=False)},
                 {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
             ],
-            # Standard compatible field rather than OpenAI-specific max_completion_tokens.
+
             "max_tokens": max_tokens,
         }
         if mode == 'json_object':

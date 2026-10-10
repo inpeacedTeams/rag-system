@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="390" viewBox="0 0 1200 390" role="img" aria-labelledby="title description">
+<title id="title">Источник: чат с вашими документами</title>
+<desc id="description">PDF, TXT и страницы сайта. Проверяемые ответы, точные цитаты, лёгкая архитектура.</desc>
+<defs>
+  <linearGradient id="background" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#102e26"/><stop offset="1" stop-color="#1d5140"/></linearGradient>
+  <radialGradient id="glow"><stop stop-color="#93d5b6" stop-opacity=".22"/><stop offset="1" stop-color="#93d5b6" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="1200" height="390" rx="28" fill="url(#background)"/>
+<circle cx="1020" cy="60" r="260" fill="url(#glow)"/>
+<path d="M730 0v390M860 0v390M990 0v390M1120 0v390M680 65h520M680 195h520M680 325h520" stroke="#b5dfc5" stroke-opacity=".07"/>
+<g font-family="Arial,Helvetica,sans-serif">
+  <rect x="58" y="48" width="47" height="47" rx="13" fill="#c5efcf"/>
+  <text x="81" y="81" text-anchor="middle" font-size="29" font-weight="700" fill="#184333">И</text>
+  <text x="122" y="79" font-size="27" font-weight="700" fill="#f3f8f3">источник.</text>
+  <text x="59" y="147" font-size="12" font-weight="700" letter-spacing="3" fill="#abd0b9">DOCUMENT RAG · BUILT TO VERIFY</text>
+  <text x="55" y="212" font-size="54" font-weight="700" fill="#ffffff">Ваши документы.</text>
+  <text x="55" y="273" font-size="54" font-weight="700" fill="#c5efcf">Проверяемые ответы.</text>
+  <text x="60" y="319" font-size="17" fill="#b4cfc1">PDF / TXT / WEB</text>
+  <circle cx="224" cy="313" r="2" fill="#b4cfc1"/>
+  <text x="242" y="319" font-size="17" fill="#b4cfc1">BM25 + Qdrant + Kiro</text>
+  <g transform="translate(790 92)">
+    <rect x="20" y="0" width="265" height="128" rx="16" fill="#f2f7f2"/>
+    <rect x="39" y="21" width="35" height="35" rx="9" fill="#dfede3"/>
+    <text x="56" y="44" text-anchor="middle" font-size="12" font-weight="700" fill="#176d59">PDF</text>
+    <text x="88" y="40" font-size="14" font-weight="700" fill="#203f32">Документ</text>
+    <text x="88" y="59" font-size="11" fill="#708477">Страница → фрагмент → источник</text>
+    <rect x="39" y="78" width="195" height="7" rx="3.5" fill="#cddfd2"/>
+    <rect x="39" y="94" width="152" height="7" rx="3.5" fill="#e1ebe4"/>
+    <rect x="0" y="145" width="265" height="108" rx="16" fill="#d2efdc"/>
+    <text x="20" y="178" font-size="14" font-weight="700" fill="#174c36">Ответ с подтверждением</text>
+    <rect x="20" y="194" width="220" height="7" rx="3.5" fill="#93bba2"/>
+    <text x="20" y="230" font-size="11" fill="#356a4b">[1] Файл · страница · дословная цитата</text>
+  </g>
+</g>
+</svg>

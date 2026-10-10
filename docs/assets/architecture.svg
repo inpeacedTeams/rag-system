@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460" role="img" aria-labelledby="title desc">
+<title id="title">Архитектура приложения Источник</title><desc id="desc">Браузер обращается к FastAPI на Render. BM25 создаёт разреженные векторы для Qdrant. Kiro генерирует ответ по найденным фрагментам, после чего проверяются цитаты и обоснованность.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#689b7c"/></marker></defs>
+<rect x="1" y="1" width="1198" height="458" rx="22" fill="#f6f9f6" stroke="#dce7df"/>
+<g font-family="Arial,Helvetica,sans-serif">
+<text x="40" y="43" font-size="12" font-weight="700" letter-spacing="2" fill="#627d6b">FROM DOCUMENT TO EVIDENCE</text>
+<rect x="325" y="71" width="365" height="302" rx="18" fill="#e9f2ec" stroke="#cddfd2"/>
+<text x="347" y="99" font-size="11" letter-spacing="1.5" font-weight="700" fill="#5a7a65">RENDER · FASTAPI · 1 WORKER</text>
+<rect x="40" y="138" width="230" height="112" rx="14" fill="white" stroke="#cddfd2"/>
+<text x="62" y="169" font-size="17" font-weight="700" fill="#1d4530">Браузер</text>
+<text x="62" y="194" font-size="12" fill="#627d6b">PDF / TXT / URL + вопрос</text>
+<text x="62" y="215" font-size="12" fill="#627d6b">Ответ + раскрываемые цитаты</text>
+<rect x="347" y="126" width="321" height="94" rx="12" fill="white" stroke="#cddfd2"/>
+<text x="368" y="155" font-size="16" font-weight="700" fill="#1d4530">Извлечение + чанки + BM25</text>
+<text x="368" y="180" font-size="12" fill="#627d6b">Страница · номер · sparse-вектор</text>
+<text x="368" y="200" font-size="12" fill="#627d6b">Без нейросети и загрузки весов</text>
+<rect x="347" y="243" width="321" height="108" rx="12" fill="white" stroke="#cddfd2"/>
+<text x="368" y="273" font-size="16" font-weight="700" fill="#1d4530">RAG + проверка ответа</text>
+<text x="368" y="297" font-size="12" fill="#627d6b">Точное совпадение цитаты в тексте</text>
+<text x="368" y="318" font-size="12" fill="#627d6b">Проверка обоснованности через Kiro</text>
+<rect x="795" y="110" width="365" height="108" rx="14" fill="#e5f2f7" stroke="#c1d8e3"/>
+<text x="818" y="142" font-size="17" font-weight="700" fill="#254e64">Qdrant Cloud</text>
+<text x="818" y="167" font-size="12" fill="#53768a">Sparse BM25 + IDF · фильтр по сессии</text>
+<text x="818" y="189" font-size="12" fill="#53768a">Текст и метаданные хранятся здесь</text>
+<rect x="795" y="266" width="365" height="108" rx="14" fill="#f4eee5" stroke="#e0d2bd"/>
+<text x="818" y="298" font-size="17" font-weight="700" fill="#725438">Kiro API</text>
+<text x="818" y="322" font-size="12" fill="#8b755b">qwen/qwen3.8-omni-flash:free</text>
+<text x="818" y="345" font-size="12" fill="#8b755b">Генерация + проверка утверждений</text>
+<path d="M270 172H338" fill="none" stroke="#689b7c" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M668 164H785" fill="none" stroke="#689b7c" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="715" y="150" font-size="10" fill="#627d6b">Индекс</text>
+<path d="M795 206H736V279H678" fill="none" stroke="#689b7c" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="706" y="257" font-size="10" fill="#627d6b">Поиск</text>
+<path d="M668 328H785" fill="none" stroke="#689b7c" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M347 310H297V231H280" fill="none" stroke="#689b7c" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="40" y="423" font-size="12" fill="#627d6b">Нет подтверждения → честный отказ. Найденные фрагменты → ответ с источниками.</text>
+</g>
+</svg>

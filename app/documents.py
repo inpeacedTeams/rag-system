@@ -29,7 +29,7 @@ def chunk_pages(pages: list[tuple[int | None, str]], size: int = 1400, overlap: 
         while start < len(text):
             end = min(start + size, len(text))
             if end < len(text):
-                # Prefer a sentence or word boundary, without producing very short chunks.
+
                 boundary = max(text.rfind(". ", start + size // 2, end), text.rfind(" ", start + size // 2, end))
                 if boundary > start:
                     end = boundary + 1

@@ -4,7 +4,7 @@ NO_INFORMATION = "В загруженных документах нет этой
 
 
 def build_response(result: dict, hits: list[dict]) -> dict:
-    """Fail closed on invented IDs, missing quotes, or quotes absent from retrieved text."""
+
     empty = {"answer": NO_INFORMATION, "sources": [], "found": False}
     claims = result.get("claims")
     if result.get("found") is not True or not isinstance(claims, list) or not claims or len(claims) > 8:

@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 @dataclass(frozen=True)
 class Settings:
     kiro_api_key: str = os.getenv("KIRO_API_KEY", "")
-    # Legacy key/base variables remain accepted, so existing deployments can migrate explicitly.
+
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_base_url: str = os.getenv("CHAT_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://api.xkiro.com/v1")).rstrip("/")
     chat_model: str = os.getenv("CHAT_MODEL", "qwen/qwen3.8-omni-flash:free")
@@ -29,7 +29,7 @@ class Settings:
 
     @property
     def chat_api_key(self) -> str:
-        # Never send an old OpenAI key to Kiro merely because the default URL changed.
+
         if urlsplit(self.openai_base_url).hostname == 'api.xkiro.com':
             return self.kiro_api_key
         return self.openai_api_key or self.kiro_api_key

@@ -12,7 +12,7 @@ class DockerEntrypointTests(unittest.TestCase):
         line = next(line for line in dockerfile.read_text().splitlines() if line.startswith('CMD '))
         command = json.loads(line[4:])
         with tempfile.TemporaryDirectory() as directory:
-            # Capture command-line arguments instead of starting an actual web server.
+
             executable = Path(directory) / 'uvicorn'
             executable.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
             executable.chmod(0o755)

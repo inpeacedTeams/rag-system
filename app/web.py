@@ -1,4 +1,3 @@
-"""Single-page HTML import with DNS pinning, public-IP checks and bounded redirects."""
 import http.client
 import ipaddress
 import socket
@@ -46,7 +45,7 @@ class PinnedConnection(http.client.HTTPConnection):
         self.tls = tls
 
     def connect(self):
-        # Connect to the already validated IP, never resolve the hostname again.
+
         sock = socket.create_connection((self.address, self.port), self.timeout)
         if self.tls:
             try:

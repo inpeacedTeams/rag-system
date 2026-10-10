@@ -26,7 +26,7 @@ logger = logging.getLogger("rag")
 store = VectorStore(settings)
 llm = OpenAIClient(settings)
 embedder = BM25Embeddings(settings)
-# Fixed-size lock stripes avoid an unbounded per-session lock dictionary.
+
 locks = [threading.RLock() for _ in range(128)]
 rate_lock = threading.Lock()
 ingestion_lock = threading.Lock()
@@ -91,7 +91,7 @@ async def security(request: Request, call_next):
             parsed = urlsplit(origin)
             if parsed.netloc.lower() != request.headers.get("host", "").lower() or parsed.scheme not in {"http", "https"}:
                 return JSONResponse({"detail": "Запросы с другого сайта запрещены."}, status_code=403)
-        # Bound ingestion bodies before FastAPI's multipart parser buffers them.
+
         limit = settings.max_upload_bytes + 1024 * 1024 if request.url.path == "/api/documents/upload" else 32 * 1024
         length = request.headers.get("content-length")
         if length:
@@ -100,7 +100,7 @@ async def security(request: Request, call_next):
                     return JSONResponse({"detail": "Слишком большой запрос."}, status_code=413)
             except ValueError:
                 return JSONResponse({"detail": "Некорректный Content-Length."}, status_code=400)
-        # Also enforce the limit on chunked requests; never trust Content-Length alone.
+
         chunks = []
         total = 0
         async for chunk in request.stream():
@@ -127,7 +127,7 @@ def workspace(request: Request):
 def limit_requests(ws: str):
     now = time.monotonic()
     with rate_lock:
-        # Expire inactive entries, preventing an unbounded rate-limit map.
+
         for key in list(rate_history):
             if not rate_history[key] or rate_history[key][-1] < now - 60:
                 del rate_history[key]
@@ -252,7 +252,7 @@ def chat(body: ChatBody, ws: str = Depends(workspace)):
     question = body.question.strip()
     if not question:
         raise HTTPException(400, "Введите вопрос.")
-    # Keep clear/delete from racing an in-flight answer for this session.
+
     with session_lock(ws):
         if not store.documents(ws):
             return {"answer": NO_INFORMATION, "sources": [], "found": False}

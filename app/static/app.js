@@ -164,7 +164,7 @@ function addSources(content, sources) {
         if (['http:', 'https:'].includes(url.protocol)) {
           const link = document.createElement('a'); link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Открыть страницу ↗'; card.append(link);
         }
-      } catch { /* Invalid source URLs are never rendered as links. */ }
+      } catch {  }
     }
     list.append(card);
   }
@@ -199,7 +199,6 @@ $('chat-form').addEventListener('submit', async event => {
 async function init() {
   syncControls();
   try {
-    // Sequential calls ensure the first response establishes a session before other requests.
     const status = await api('/api/status');
     available = status.configured;
     maxUploadMB = status.max_upload_mb;

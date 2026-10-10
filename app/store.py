@@ -31,7 +31,7 @@ class VectorStore:
             sparse = existing["config"]["params"].get("sparse_vectors") or {}
             if "bm25" not in sparse or sparse["bm25"].get("modifier") != "idf":
                 raise ProviderError("Коллекция несовместима с BM25. Задайте QDRANT_COLLECTION=documents_bm25_v1 и загрузите документы заново.")
-        # Recreate/ensure the scope index even if a previous startup was interrupted.
+
         for field in ("workspace", "document_id"):
             self.request("PUT", self.root + "/index?wait=true", {"field_name": field, "field_schema": "keyword"})
 
@@ -49,7 +49,7 @@ class VectorStore:
             "id": str(uuid.uuid4()), "vector": {"bm25": vector},
             "payload": {**document, "workspace": workspace, "page": chunk.page, "chunk": chunk.number, "text": chunk.text},
         } for chunk, vector in zip(chunks, vectors)]
-        # Submit all chunks in one acknowledged request, rather than incremental batches.
+
         self.request("PUT", self.root + "/points?wait=true", {"points": points})
 
     def documents(self, workspace: str):

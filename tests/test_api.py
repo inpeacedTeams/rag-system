@@ -1,4 +1,3 @@
-"""HTTP contract tests. External paid services are mocked only inside these tests."""
 import unittest
 from dataclasses import replace
 from unittest.mock import patch, Mock
